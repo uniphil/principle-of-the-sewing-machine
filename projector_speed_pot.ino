@@ -79,7 +79,7 @@ volatile uint8_t x = 0;
 void update_lamp() {
   uint16_t brightness = analogRead(LED_BRIGHTNESS);
   uint8_t output = brightness >> 2;  // 10-bit to 8-bit
-  uint16_t response_cut = analogRead(LED_RESPONSIVE);
+  uint16_t response_cut = 767;  // analogRead(LED_RESPONSIVE);
   if (response_cut < 1021) {
     float cut_norm = 1 - (float)response_cut / 1023;
     float motor_drive = (float)_motor_current_speed / MOTOR_MAX_POWER;
