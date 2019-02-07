@@ -14,7 +14,7 @@
 #define PEDAL_THRESHOLD 600  // with the current resistor divider, there is basically nothing from 1023 (open) to 440 (minimum press)
                              // the pedal threshold can be increased from 440 to have more power delivered at the start of its range
 #define MOTOR_MAX_POWER 190  // 8-bit pwm range
-#define MOTOR_POWER_STEP_DT 4  // milliseconds
+#define MOTOR_POWER_STEP_DT 3  // milliseconds
 
 // public target updates
 //volatile uint8_t motor_target_speed = 0;
@@ -41,6 +41,17 @@ uint16_t get_pot() {
   return norm * 1023;
 }
 
+volatile bool takeover = false;
+void open_shutter() {
+  takeover = true;
+  digitalWrite(_MOTOR_REVERSE, HIGH);
+  analogWrite(_MOTOR_PWM, 100);
+  delay(80);
+  digitalWrite(_MOTOR_PWM, 0);
+  digitalWrite(_MOTOR_REVERSE, LOW);
+  takeover = false;
+}
+
 /**
  * gently handle motor speed changes.
  * 
@@ -50,6 +61,9 @@ void update_motor() {
   uint16_t pedal = get_pedal();
   uint16_t pot = get_pot();
   uint16_t combined = max(pedal, pot);
+  if (takeover) {
+    return;
+  }
   uint8_t motor_target_speed = map(combined, 0, 1024, 0, MOTOR_MAX_POWER);
 
   // maybe no update necessary
@@ -124,5 +138,7 @@ void setup() {
 }
 
 void loop() {
+//  open_shutter();
+  delay(2000);
 }
 
