@@ -1,15 +1,14 @@
 // PINS
 #define PEDAL A0
-#define LED_MONITOR A1  // current-limiting resistor is 2.2R (measured; 2R rated)
-#define LED 10
+#define POT_SPEED A8  // digital 8
+#define REVERSE 15
 #define _MOTOR_PWM 5  // arduino pin number
 #define _MOTOR_REVERSE A3  // arduino pin number
 
+#define LED_PWM 10
 #define LED_BRIGHTNESS A2
 #define LED_RESPONSIVE A6 // digital 4
-#define POT_SPEED A8  // digital 8
-#define REVERSE 15
-
+#define LED_MONITOR A1  // current-limiting resistor is 2.2R (measured; 2R rated)
 
 // Behaviour constants
 #define PEDAL_THRESHOLD 600  // with the current resistor divider, there is basically nothing from 1023 (open) to 440 (minimum press)
@@ -67,14 +66,18 @@ void update_motor() {
   analogWrite(_MOTOR_PWM, map(_motor_current_speed, 0, 255, 0, MOTOR_MAX_POWER));
 }
 
+void update_lamp() {
+  uint16_t brightness = analogRead(LED_BRIGHTNESS);
+  analogWrite(LED_PWM, brightness >> 2);
+}
+
 // every 1ms
 SIGNAL(TIMER0_COMPA_vect) {
-  _motor_update_ms_counter += 1;
-  _motor_update_ms_counter %= MOTOR_POWER_STEP_DT;
-  if (_motor_update_ms_counter == 0) {
+  if (++_motor_update_ms_counter > MOTOR_POWER_STEP_DT) {
     update_motor();
+    _motor_update_ms_counter = 0;
   }
-//  update_lamp();
+  update_lamp();
 }
 
 void setup() {
@@ -87,13 +90,15 @@ void setup() {
 
   pinMode(PEDAL, INPUT);
 
-  pinMode(LED, OUTPUT);
-  analogWrite(LED, 127);
+  pinMode(LED_PWM, OUTPUT);
+  digitalWrite(LED_PWM, LOW);
+  pinMode(LED_BRIGHTNESS, INPUT);
 
   // set up timer0 to call our motor update speed function every 1ms
   OCR0A = 0xAF;  // arbitrary -- the count we hook into
   TIMSK0 |= _BV(OCIE0A);  // interrupt on that count please!
 
+  // debug woo
   Serial.begin(9600);
 }
 
