@@ -66,9 +66,18 @@ void update_motor() {
   analogWrite(_MOTOR_PWM, map(_motor_current_speed, 0, 255, 0, MOTOR_MAX_POWER));
 }
 
+volatile uint8_t x = 0;
 void update_lamp() {
   uint16_t brightness = analogRead(LED_BRIGHTNESS);
-  analogWrite(LED_PWM, brightness >> 2);
+  uint8_t output = brightness >> 2;  // 10-bit to 8-bit
+  uint16_t response_cut = analogRead(LED_RESPONSIVE);
+  if (response_cut < 1021) {
+    float cut_norm = 1 - (float)response_cut / 1023;
+    float motor_drive = (float)_motor_current_speed / MOTOR_MAX_POWER;
+    float cut = 1 - cut_norm * (1 - motor_drive);
+    output = (uint16_t)(brightness * cut) >> 2;
+  }
+  analogWrite(LED_PWM, output);
 }
 
 // every 1ms
@@ -93,6 +102,8 @@ void setup() {
   pinMode(LED_PWM, OUTPUT);
   digitalWrite(LED_PWM, LOW);
   pinMode(LED_BRIGHTNESS, INPUT);
+  pinMode(LED_RESPONSIVE, INPUT);
+  pinMode(LED_MONITOR, INPUT);
 
   // set up timer0 to call our motor update speed function every 1ms
   OCR0A = 0xAF;  // arbitrary -- the count we hook into
