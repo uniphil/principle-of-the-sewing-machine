@@ -34,6 +34,13 @@ uint16_t get_pedal() {
   return map(reading, PEDAL_THRESHOLD, 0, 0, 1024);
 }
 
+uint16_t get_pot() {
+  uint16_t reading = analogRead(POT_SPEED);
+  float norm = (float)reading / 1023;
+  norm = sqrt(norm);  // more power sooner
+  return norm * 1023;
+}
+
 /**
  * gently handle motor speed changes.
  * 
@@ -41,7 +48,9 @@ uint16_t get_pedal() {
  */
 void update_motor() {
   uint16_t pedal = get_pedal();
-  uint8_t motor_target_speed = map(pedal, 0, 1024, 0, MOTOR_MAX_POWER);
+  uint16_t pot = get_pot();
+  uint16_t combined = max(pedal, pot);
+  uint8_t motor_target_speed = map(combined, 0, 1024, 0, MOTOR_MAX_POWER);
 
   // maybe no update necessary
   if (_motor_current_reverse == motor_target_reverse &&
@@ -98,6 +107,7 @@ void setup() {
   // end motor setup
 
   pinMode(PEDAL, INPUT);
+  pinMode(POT_SPEED, INPUT);
 
   pinMode(LED_PWM, OUTPUT);
   digitalWrite(LED_PWM, LOW);
