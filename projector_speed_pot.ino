@@ -2,6 +2,7 @@
 #define PEDAL A0
 #define POT_SPEED A8  // digital 8
 #define MOTOR_PWM 5  // arduino pin number
+
 #define MOTOR_REVERSE A3  // arduino pin number
 #define DIRECTION A6 // digital 4
 
@@ -19,9 +20,7 @@
 #define MOTOR_POWER_STEP_DT 3  // milliseconds
 
 // public target updates
-//volatile uint8_t motor_target_speed = 0;
 volatile bool motor_target_reverse = false;
-
 
 // private state tracking
 volatile uint8_t _motor_current_speed = 0;
