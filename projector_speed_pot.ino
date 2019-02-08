@@ -18,6 +18,7 @@
 #define DIRECTION_THRESHOLD 315
 #define MOTOR_MAX_POWER 190  // 8-bit pwm range
 #define MOTOR_POWER_STEP_DT 3  // milliseconds
+#define BRIGHTNESS_NOISE_HISTORY 7  // how many brightness samples to keep so we can throw two extremes away. min 3, max 255.
 
 // public target updates
 volatile bool motor_target_reverse = false;
@@ -26,6 +27,8 @@ volatile bool motor_target_reverse = false;
 volatile uint8_t _motor_current_speed = 0;
 volatile bool _motor_current_reverse = false;
 volatile uint8_t _motor_update_ms_counter = 0;
+volatile uint16_t _brightness_history[BRIGHTNESS_NOISE_HISTORY];
+volatile uint8_t _brightness_history_index = 0;
 
 uint16_t get_pedal() {
   uint16_t reading = analogRead(PEDAL);
@@ -94,7 +97,29 @@ void update_motor() {
 volatile uint8_t x = 0;
 void update_lamp() {
   uint16_t brightness = analogRead(LED_BRIGHTNESS);
-  uint8_t output = brightness >> 2;  // 10-bit to 8-bit
+
+  // include the latest sample in our history
+  _brightness_history_index += 1;
+  _brightness_history_index %= BRIGHTNESS_NOISE_HISTORY;
+  _brightness_history[_brightness_history_index] = brightness;
+
+  // the the total brightness and the two extremes
+  unsigned long total_history_brightness = 0;
+  uint16_t dimmest = 1023;
+  uint16_t brightest = 0;
+  for (uint8_t i = 0; i < BRIGHTNESS_NOISE_HISTORY; i++) {
+    uint16_t b = _brightness_history[i];
+    total_history_brightness += b;
+    dimmest = min(dimmest, b);
+    brightest = max(brightest, b);
+  }
+  total_history_brightness -= dimmest;
+  total_history_brightness -= brightest;
+
+  uint16_t denoised = total_history_brightness / (BRIGHTNESS_NOISE_HISTORY - 2);
+
+  uint8_t output = denoised >> 2;  // 10-bit to 8-bit
+
   if (_motor_current_speed == 0) {
     output = min(output, 204);  // max 80% when stopped
   }
@@ -126,6 +151,10 @@ void setup() {
   digitalWrite(LED_PWM, LOW);
   pinMode(LED_BRIGHTNESS, INPUT);
   pinMode(LED_MONITOR, INPUT);
+
+  for (uint8_t i = 0; i < BRIGHTNESS_NOISE_HISTORY; i++) {
+    _brightness_history[i] = 0;
+  }
 
   // set up timer0 to call our motor update speed function every 1ms
   OCR0A = 0xAF;  // arbitrary -- the count we hook into
