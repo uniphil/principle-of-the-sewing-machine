@@ -14,6 +14,7 @@
 // Behaviour constants
 #define PEDAL_THRESHOLD 600  // with the current resistor divider, there is basically nothing from 1023 (open) to 440 (minimum press)
                              // the pedal threshold can be increased from 440 to have more power delivered at the start of its range
+#define DIRECTION_THRESHOLD 315
 #define MOTOR_MAX_POWER 190  // 8-bit pwm range
 #define MOTOR_POWER_STEP_DT 3  // milliseconds
 
@@ -66,6 +67,7 @@ void update_motor() {
     return;
   }
   uint8_t motor_target_speed = map(combined, 0, 1024, 0, MOTOR_MAX_POWER);
+  motor_target_reverse = analogRead(DIRECTION) < DIRECTION_THRESHOLD;
 
   // maybe no update necessary
   if (_motor_current_reverse == motor_target_reverse &&
@@ -82,7 +84,7 @@ void update_motor() {
   if (_motor_current_reverse != motor_target_reverse) {
     // need to change direction: ramp down to zero first first
     _motor_current_speed -= 1;
-  } else {
+  } else if (_motor_current_speed != motor_target_speed) {
     // ramp up or down toward the new speed
     _motor_current_speed += (_motor_current_speed < motor_target_speed) ? 1 : -1;
   }
