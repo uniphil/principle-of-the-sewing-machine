@@ -1,14 +1,15 @@
 // PINS
 #define PEDAL A0
 #define POT_SPEED A8  // digital 8
-#define REVERSE 15
-#define _MOTOR_PWM 5  // arduino pin number
-#define _MOTOR_REVERSE A3  // arduino pin number
+#define MOTOR_PWM 5  // arduino pin number
+#define MOTOR_REVERSE A3  // arduino pin number
+#define DIRECTION A6 // digital 4
 
 #define LED_PWM 10
 #define LED_BRIGHTNESS A2
-#define LED_RESPONSIVE A6 // digital 4
 #define LED_MONITOR A1  // current-limiting resistor is 2.2R (measured; 2R rated)
+
+#define _UNUSED_ 15  // it's wired in! ready to work as a switch (set INPUT_PULLUP) or a digital out
 
 // Behaviour constants
 #define PEDAL_THRESHOLD 600  // with the current resistor divider, there is basically nothing from 1023 (open) to 440 (minimum press)
@@ -44,11 +45,11 @@ uint16_t get_pot() {
 volatile bool takeover = false;
 void open_shutter() {
   takeover = true;
-  digitalWrite(_MOTOR_REVERSE, HIGH);
-  analogWrite(_MOTOR_PWM, 100);
+  digitalWrite(MOTOR_REVERSE, HIGH);
+  analogWrite(MOTOR_PWM, 100);
   delay(80);
-  digitalWrite(_MOTOR_PWM, 0);
-  digitalWrite(_MOTOR_REVERSE, LOW);
+  digitalWrite(MOTOR_PWM, 0);
+  digitalWrite(MOTOR_REVERSE, LOW);
   takeover = false;
 }
 
@@ -75,7 +76,7 @@ void update_motor() {
   if (_motor_current_speed == 0) {
     // only flip the direction signal when the motor is at rest
     _motor_current_reverse = motor_target_reverse;
-    digitalWrite(_MOTOR_REVERSE, _motor_current_reverse ? HIGH : LOW);  // swap low/high for motor wiring
+    digitalWrite(MOTOR_REVERSE, _motor_current_reverse ? LOW : HIGH);  // swap low/high for motor wiring
   }
 
   if (_motor_current_reverse != motor_target_reverse) {
@@ -86,19 +87,15 @@ void update_motor() {
     _motor_current_speed += (_motor_current_speed < motor_target_speed) ? 1 : -1;
   }
 
-  analogWrite(_MOTOR_PWM, map(_motor_current_speed, 0, 255, 0, MOTOR_MAX_POWER));
+  analogWrite(MOTOR_PWM, map(_motor_current_speed, 0, 255, 0, MOTOR_MAX_POWER));
 }
 
 volatile uint8_t x = 0;
 void update_lamp() {
   uint16_t brightness = analogRead(LED_BRIGHTNESS);
   uint8_t output = brightness >> 2;  // 10-bit to 8-bit
-  uint16_t response_cut = 767;  // analogRead(LED_RESPONSIVE);
-  if (response_cut < 1021) {
-    float cut_norm = 1 - (float)response_cut / 1023;
-    float motor_drive = (float)_motor_current_speed / MOTOR_MAX_POWER;
-    float cut = 1 - cut_norm * (1 - motor_drive);
-    output = (uint16_t)(brightness * cut) >> 2;
+  if (_motor_current_speed == 0) {
+    output = min(output, 204);  // max 80% when stopped
   }
   analogWrite(LED_PWM, output);
 }
@@ -114,19 +111,19 @@ SIGNAL(TIMER0_COMPA_vect) {
 
 void setup() {
   // motor pin setup
-  pinMode(_MOTOR_PWM, OUTPUT);
-  analogWrite(_MOTOR_PWM, 0);
-  pinMode(_MOTOR_REVERSE, OUTPUT);
-  digitalWrite(_MOTOR_REVERSE, LOW);
+  pinMode(MOTOR_PWM, OUTPUT);
+  analogWrite(MOTOR_PWM, 0);
+  pinMode(MOTOR_REVERSE, OUTPUT);
+  digitalWrite(MOTOR_REVERSE, LOW);
   // end motor setup
 
   pinMode(PEDAL, INPUT);
   pinMode(POT_SPEED, INPUT);
+  pinMode(DIRECTION, INPUT);
 
   pinMode(LED_PWM, OUTPUT);
   digitalWrite(LED_PWM, LOW);
   pinMode(LED_BRIGHTNESS, INPUT);
-  pinMode(LED_RESPONSIVE, INPUT);
   pinMode(LED_MONITOR, INPUT);
 
   // set up timer0 to call our motor update speed function every 1ms
@@ -138,7 +135,5 @@ void setup() {
 }
 
 void loop() {
-//  open_shutter();
-  delay(2000);
 }
 
