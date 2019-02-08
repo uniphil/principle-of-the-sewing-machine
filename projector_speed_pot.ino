@@ -20,6 +20,9 @@
 #define MOTOR_POWER_STEP_DT 3  // milliseconds
 #define BRIGHTNESS_NOISE_HISTORY 7  // how many brightness samples to keep so we can throw two extremes away. min 3, max 255.
 
+// Machine constants
+#define RESISTOR_OHMS_MEASURED 2.2
+
 // public target updates
 volatile bool motor_target_reverse = false;
 
@@ -123,6 +126,7 @@ void update_lamp() {
   if (_motor_current_speed == 0) {
     output = min(output, 204);  // max 80% when stopped
   }
+
   analogWrite(LED_PWM, output);
 }
 
@@ -165,5 +169,19 @@ void setup() {
 }
 
 void loop() {
+  uint16_t reading = analogRead(LED_MONITOR);
+  float current = (float)reading / 1023 * 5 / RESISTOR_OHMS_MEASURED;
+  if (current > 0.5) {
+    if (current > 1.04) {
+      Serial.print("WARNING ");
+    }
+    Serial.print("current reading: ");
+    Serial.print(reading);
+    Serial.print("\t");
+    Serial.print(current);
+    Serial.print("A");
+    Serial.println("\tnominal: 423 / 0.94A nominal. max: 473 / 1.05A.");
+  }
+  delay(100);
 }
 
